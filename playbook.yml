@@ -1,46 +1,44 @@
-- name: Setup Apache and deploy website
-
-  hosts: web1
-
+---
+- name: Deploy website with Apache
+  hosts: webserver  # Make sure you're targeting the correct host
   become: yes
- 
   tasks:
-
-    - name: Update apt
-
+    - name: Install Apache2
       apt:
-
-        update_cache: yes
- 
-    - name: Install Apache
-
-      apt:
-
         name: apache2
-
         state: present
- 
-    - name: Start Apache
+        update_cache: yes
 
+    - name: Ensure Apache is running
       service:
-
         name: apache2
-
         state: started
-
         enabled: yes
- 
-    - name: Copy website folder (all files)
 
+    - name: Remove Apache's default index.html (if it exists)
+      file:
+        path: /var/www/html/index.html
+        state: absent
+
+    - name: Copy website files to Apache document root
       copy:
-
-        src: site_content/
-
+        src: /path/to/your/site/  # Update this to point to the right location on your machine
         dest: /var/www/html/
-
         owner: www-data
-
         group: www-data
+        mode: '0644'
+        recursive: yes
 
-        mode: "0644"
- 
+    - name: Verify the contents of /var/www/html/ after copy
+      command: ls -la /var/www/html
+      register: site_files
+      ignore_errors: true
+
+    - name: Show contents of /var/www/html/
+      debug:
+        var: site_files.stdout
+
+    - name: Restart Apache to apply changes
+      service:
+        name: apache2
+        state: restarted
