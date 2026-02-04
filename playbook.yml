@@ -1,23 +1,39 @@
-- name: Setup Apache and deploy website
-hosts: web1
-become: yes
-tasks:
-   - name: Update apt
-     apt:
-       update_cache: yes
-   - name: Install Apache
-     apt:
-       name: apache2
-       state: present
-   - name: Start Apache
-     service:
-       name: apache2
-       state: started
-       enabled: yes
-   - name: Copy website folder (all files)
-     copy:
-       src: site_content/
-       dest: /var/www/html/
-       owner: www-data
-       group: www-data
-       mode: "0644"
+---
+- name: Deploy website with Apache
+  hosts: webserver
+  become: yes
+  tasks:
+    - name: Install Apache2
+      apt:
+        name: apache2
+        state: present
+        update_cache: yes
+
+    - name: Ensure Apache is running
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+
+    - name: Copy website files to Apache document root
+      copy:
+        src: /path/to/your/site/  # Update this to point to the right location on your machine
+        dest: /var/www/html/       # Apache's default directory
+        owner: www-data
+        group: www-data
+        mode: '0644'
+        recursive: yes
+
+    - name: Check contents of /var/www/html to ensure proper file copy
+      command: ls -la /var/www/html
+      register: site_files
+      ignore_errors: true  # If ls fails, continue the playbook
+
+    - name: Show copied files
+      debug:
+        var: site_files.stdout
+
+    - name: Restart Apache to apply changes
+      service:
+        name: apache2
+        state: restarted
