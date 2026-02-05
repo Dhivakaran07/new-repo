@@ -1,44 +1,64 @@
----
-- name: Deploy website with Apache
-  hosts: webserver  # Make sure you're targeting the correct host
+- name: Configure web server (Apache) and deploy site
+  hosts: web
   become: yes
+  vars:
+    web_root: /var/www/html
+    src_index: "{{ web_src | default('../web/index.html') }}"
+ 
   tasks:
-    - name: Install Apache2
+    # Debian/Ubuntu branch
+    - name: Update apt cache (Debian/Ubuntu)
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+ 
+    - name: Install Apache (Debian/Ubuntu)
       apt:
         name: apache2
         state: present
-        update_cache: yes
-
-    - name: Ensure Apache is running
+      when: ansible_os_family == "Debian"
+ 
+    - name: Ensure Apache is enabled and running (Debian/Ubuntu)
       service:
         name: apache2
         state: started
         enabled: yes
-
-    - name: Remove Apache's default index.html (if it exists)
-      file:
-        path: /var/www/html/index.html
-        state: absent
-
-    - name: Copy website files to Apache document root
-      copy:
-        src: /path/to/your/site/  # Update this to point to the right location on your machine
-        dest: /var/www/html/
-        owner: www-data
-        group: www-data
-        mode: '0644'
-        recursive: yes
-
-    - name: Verify the contents of /var/www/html/ after copy
-      command: ls -la /var/www/html
-      register: site_files
-      ignore_errors: true
-
-    - name: Show contents of /var/www/html/
-      debug:
-        var: site_files.stdout
-
-    - name: Restart Apache to apply changes
+      when: ansible_os_family == "Debian"
+ 
+    # RedHat/Amazon branch
+    - name: Install Apache (RHEL/Amazon)
+      yum:
+        name: httpd
+        state: present
+      when: ansible_os_family == "RedHat"
+ 
+    - name: Ensure Apache is enabled and running (RHEL/Amazon)
       service:
-        name: apache2
-        state: restarted
+        name: httpd
+        state: started
+        enabled: yes
+      when: ansible_os_family == "RedHat"
+ 
+    # Common tasks
+    - name: Create web root directory
+      file:
+        path: "{{ web_root }}"
+        state: directory
+        mode: '0755'
+ 
+    - name: Deploy index.html
+      copy:
+        src: "{{ src_index }}"
+        dest: "{{ web_root }}/index.html"
+        mode: '0644'
+ 
+    # If SELinux is enforcing on RHEL/Amazon
+    - name: Set SELinux context on web root (if enabled)
+      command: restorecon -Rv "{{ web_root }}"
+      when:
+        - ansible_os_family == "RedHat"
+        - ansible_selinux is defined
+        - ansible_selinux.status == "enabled"
+ 
+ 
+ 
